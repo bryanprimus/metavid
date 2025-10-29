@@ -10,6 +10,9 @@
     "index.ts",
     "README.md"
   ],
+  "bin": {
+    "metavid": "index.ts"
+  },
   "license": "MIT",
   "keywords": [
     "bun",
