@@ -14,6 +14,10 @@
     "metavid": "index.ts"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bryanprimus/metavid.git"
+  },
   "keywords": [
     "bun",
     "cli",
