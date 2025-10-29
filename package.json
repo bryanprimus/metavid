@@ -28,7 +28,10 @@
   "dependencies": {
     "@commander-js/extra-typings": "^14.0.0",
     "commander": "^14.0.2",
-    "file-type": "^21.0.0"
+    "file-type": "^21.0.0",
+    "mediabunny": "^1.24.2",
+    "pretty-bytes": "^7.1.0",
+    "pretty-ms": "^9.3.0"
   },
   "devDependencies": {
     "@types/bun": "latest",

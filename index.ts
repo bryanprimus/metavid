@@ -5,6 +5,13 @@ import { Command } from "@commander-js/extra-typings";
 import path from "node:path";
 import { fileTypeFromBlob } from "file-type";
 
+import {
+  extractMediaMetadata,
+  type MediaMetadata,
+} from "./extractMediaMetadata";
+import prettyMilliseconds from "pretty-ms";
+import prettyBytes from "pretty-bytes";
+
 const program = new Command();
 
 const SUPPORTED_EXTS = new Set([
@@ -28,7 +35,7 @@ const SUPPORTED_EXTS = new Set([
 
 const AMBIGUOUS_TS_EXTS = new Set(["ts", "m2ts", "mts"]);
 
-async function getMediaFile(inputPath: string): Promise<Bun.BunFile | null> {
+async function getMediaFile(inputPath: string): Promise<string | null> {
   const absPath = path.resolve(inputPath);
   const bunFile = Bun.file(absPath);
   if (!(await bunFile.exists())) return null;
@@ -41,7 +48,7 @@ async function getMediaFile(inputPath: string): Promise<Bun.BunFile | null> {
     if (mime !== "video/mp2t") return null;
   }
 
-  return bunFile;
+  return absPath;
 }
 
 async function scanFolder(root: string): Promise<string[]> {
@@ -73,19 +80,52 @@ program
 
     if (options.filePath) {
       const f = await getMediaFile(options.filePath);
-      console.log(f ? f.size : "");
+      if (f) {
+        const metadata = await extractMediaMetadata(f);
+
+        if (metadata) {
+          console.log({
+            ...metadata,
+            Duration: prettyMilliseconds(metadata.Duration),
+            FileSize: prettyBytes(metadata.FileSize),
+          });
+        } else {
+          console.log("No metadata found");
+        }
+      }
       process.exit(0);
     }
 
     if (options.folderPath) {
       console.log(`Processing folder: ${options.folderPath}`);
       const candidates = await scanFolder(options.folderPath);
-      const files: Bun.BunFile[] = [];
+      const absPaths: string[] = [];
       for (const abs of candidates) {
         const f = await getMediaFile(abs);
-        if (f) files.push(f);
+        if (f) absPaths.push(f);
       }
-      console.log(files.map((f) => f.name));
+      let metadatas: MediaMetadata[] = [];
+      for (const abs of absPaths) {
+        const metadata = await extractMediaMetadata(abs);
+        if (metadata) {
+          metadatas.push(metadata);
+        }
+      }
+      if (metadatas.length > 0) {
+        console.log({
+          totalFileSize: prettyBytes(metadatas.reduce((acc, metadata) => acc + metadata.FileSize, 0)),
+          totalDuration: prettyMilliseconds(metadatas.reduce((acc, metadata) => acc + metadata.Duration, 0)),
+          metadatas: metadatas.map((metadata) => {
+            return {
+              ...metadata,
+              Duration: prettyMilliseconds(metadata.Duration),
+              FileSize: prettyBytes(metadata.FileSize),
+            };
+          }),
+        });
+      } else {
+        console.log("No media files found in the folder");
+      }
       process.exit(0);
     }
 
