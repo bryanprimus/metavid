@@ -67,6 +67,17 @@ async function scanFolder(root: string): Promise<string[]> {
   return files;
 }
 
+const humanizeMetadata = (metadata: MediaMetadata) => {
+  return {
+    Title: metadata.Title,
+    Duration: prettyMilliseconds(metadata.Duration),
+    Size: prettyBytes(metadata.FileSize),
+    Resolution: metadata.Resolution,
+    Format: metadata.Format,
+    Created: new Date(metadata.DateCreated).toLocaleString(),
+  };
+};
+
 program
   .name(pkg.name)
   .description(pkg.description)
@@ -85,7 +96,7 @@ program
         const metadata = await extractMediaMetadata(f);
 
         if (metadata) {
-          console.table([metadata]);
+          console.table([humanizeMetadata(metadata)]);
         } else {
           clack.log.message("No metadata found");
         }
@@ -115,7 +126,7 @@ program
           "Totals",
         );
 
-        console.table(metadatas);
+        console.table(metadatas.map(humanizeMetadata));
       } else {
         clack.log.message("No media files found in the folder");
       }
