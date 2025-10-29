@@ -7,55 +7,91 @@ import { fileTypeFromBlob } from "file-type";
 
 const program = new Command();
 
-const isMpegTs = async (f: Bun.BunFile) =>
-  (await fileTypeFromBlob(f))?.mime?.toLowerCase() === "video/mp2t";
+const SUPPORTED_EXTS = new Set([
+  "mp4",
+  "mkv",
+  "webm",
+  "mov",
+  "avi",
+  "m4v",
+  "flv",
+  "wmv",
+  "ts",
+  "m2ts",
+  "mts",
+  "mpeg",
+  "mpg",
+  "3gp",
+  "3g2",
+  "ogv",
+]);
+
+const AMBIGUOUS_TS_EXTS = new Set(["ts", "m2ts", "mts"]);
+
+async function getMediaFile(inputPath: string): Promise<Bun.BunFile | null> {
+  const absPath = path.resolve(inputPath);
+  const bunFile = Bun.file(absPath);
+  if (!(await bunFile.exists())) return null;
+
+  const ext = path.extname(absPath).slice(1).toLowerCase();
+  if (!SUPPORTED_EXTS.has(ext)) return null;
+
+  if (AMBIGUOUS_TS_EXTS.has(ext)) {
+    const mime = (await fileTypeFromBlob(bunFile))?.mime?.toLowerCase();
+    if (mime !== "video/mp2t") return null;
+  }
+
+  return bunFile;
+}
+
+async function scanFolder(root: string): Promise<string[]> {
+  const VIDEO_GLOB = `**/*.{${[...SUPPORTED_EXTS].join(",")}}`;
+  const files: string[] = [];
+  const glob = new Bun.Glob(VIDEO_GLOB);
+  for await (const rel of glob.scan({
+    cwd: root,
+    onlyFiles: true,
+    dot: false,
+  })) {
+    const abs = path.join(root, rel);
+    files.push(abs);
+  }
+  return files;
+}
 
 program
   .name(pkg.name)
   .description(pkg.description)
   .version(pkg.version)
-  .option("-f, --file-name <fileNamePath>", "Specify a file name path")
-  .option("-d, --folder-name <folderNamePath>", "Specify a folder name path")
+  .option("-f, --file-path <filePath>", "Specify a file path")
+  .option("-d, --folder-path <folderPath>", "Specify a folder path")
   .action(async (options) => {
-    if (options.fileName) {
-      console.log(`Processing file: ${options.fileName}`);
-      // Implement your file processing logic here, Bry
-      return;
+    if (options.filePath && options.folderPath) {
+      console.error("Pass either --file-path or --folder-path, not both");
+      process.exit(1);
     }
 
-    if (options.folderName) {
-      console.log(`Processing folder: ${options.folderName}`);
+    if (options.filePath) {
+      const f = await getMediaFile(options.filePath);
+      console.log(f ? f.size : "");
+      process.exit(0);
+    }
 
-      const files: string[] = [];
-      const glob = new Bun.Glob(
-        "**/*.{mp4,mkv,webm,mov,avi,m4v,flv,wmv,ts,m2ts,mts,mpeg,mpg,3gp,3g2,ogv}",
-      );
-
-      for await (const rel of glob.scan({
-        cwd: options.folderName,
-        onlyFiles: true,
-        dot: false,
-      })) {
-        const abs = path.join(options.folderName, rel);
-        const f = Bun.file(abs);
-        if (!(await f.exists())) continue;
-
-        const ext = path.extname(rel).slice(1).toLowerCase();
-
-        if (ext === "ts") {
-          if (await isMpegTs(f)) files.push(path.basename(abs));
-          continue;
-        }
-
-        files.push(path.basename(abs));
+    if (options.folderPath) {
+      console.log(`Processing folder: ${options.folderPath}`);
+      const candidates = await scanFolder(options.folderPath);
+      const files: Bun.BunFile[] = [];
+      for (const abs of candidates) {
+        const f = await getMediaFile(abs);
+        if (f) files.push(f);
       }
-
-      console.log(files);
-      return;
+      console.log(files.map((f) => f.name));
+      process.exit(0);
     }
 
-    if (!options.fileName && !options.folderName) {
+    if (!options.filePath && !options.folderPath) {
       console.log("No file or folder path provided, try --help");
+      process.exit(1);
     }
   });
 
