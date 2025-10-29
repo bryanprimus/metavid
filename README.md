@@ -1,15 +1,23 @@
 # metavid
 
-To install dependencies:
+Minimal CLI to print video metadata for a single file or an entire folder.
+
+## Quick use (no install)
 
 ```bash
-bun install
+bunx metavid@latest -d "/absolute/path/to/folder"
+bunx metavid@latest -f "./absolute/path/video.mp4"
 ```
 
-To run:
+> Note: Requires Bun. This does not run on Node.js.
 
-```bash
-bun run index.ts
-```
+Flags:
+- `-f, --file-path` Scan a single file
+- `-d, --folder-path` Scan a folder (recursive)
 
-This project was created using `bun init` in bun v1.3.1. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+Pass one of the flags (not both). Prints a table; folder scans also show total duration and size.
+
+## Roadmap
+
+- Export as bin
+- Node.js support
