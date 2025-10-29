@@ -11,6 +11,7 @@ import {
 } from "./extractMediaMetadata";
 import prettyMilliseconds from "pretty-ms";
 import prettyBytes from "pretty-bytes";
+import * as clack from "@clack/prompts";
 
 const program = new Command();
 
@@ -74,7 +75,7 @@ program
   .option("-d, --folder-path <folderPath>", "Specify a folder path")
   .action(async (options) => {
     if (options.filePath && options.folderPath) {
-      console.error("Pass either --file-path or --folder-path, not both");
+      clack.log.error("Pass either --file-path or --folder-path, not both");
       process.exit(1);
     }
 
@@ -84,20 +85,15 @@ program
         const metadata = await extractMediaMetadata(f);
 
         if (metadata) {
-          console.log({
-            ...metadata,
-            Duration: prettyMilliseconds(metadata.Duration),
-            FileSize: prettyBytes(metadata.FileSize),
-          });
+          console.table([metadata]);
         } else {
-          console.log("No metadata found");
+          clack.log.message("No metadata found");
         }
       }
       process.exit(0);
     }
 
     if (options.folderPath) {
-      console.log(`Processing folder: ${options.folderPath}`);
       const candidates = await scanFolder(options.folderPath);
       const absPaths: string[] = [];
       for (const abs of candidates) {
@@ -112,25 +108,22 @@ program
         }
       }
       if (metadatas.length > 0) {
-        console.log({
-          totalFileSize: prettyBytes(metadatas.reduce((acc, metadata) => acc + metadata.FileSize, 0)),
-          totalDuration: prettyMilliseconds(metadatas.reduce((acc, metadata) => acc + metadata.Duration, 0)),
-          metadatas: metadatas.map((metadata) => {
-            return {
-              ...metadata,
-              Duration: prettyMilliseconds(metadata.Duration),
-              FileSize: prettyBytes(metadata.FileSize),
-            };
-          }),
-        });
+        const totalSize = metadatas.reduce((acc, m) => acc + m.FileSize, 0);
+        const totalDuration = metadatas.reduce((acc, m) => acc + m.Duration, 0);
+        clack.note(
+          `${"Duration:"} ${prettyMilliseconds(totalDuration)}\n${"Size:"} ${prettyBytes(totalSize)}`,
+          "Totals",
+        );
+
+        console.table(metadatas);
       } else {
-        console.log("No media files found in the folder");
+        clack.log.message("No media files found in the folder");
       }
       process.exit(0);
     }
 
     if (!options.filePath && !options.folderPath) {
-      console.log("No file or folder path provided, try --help");
+      clack.log.warn("No file or folder path provided, try --help");
       process.exit(1);
     }
   });
